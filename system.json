@@ -7,9 +7,9 @@
     "minimum": "13",
     "verified": "14"
   },
-  "url": "https://github.com/The-Final-Artificer/Foundry-VTM-V20",
-  "manifest": "https://github.com/YOUR-GITHUB/Foundry-VTM-V20/releases/latest/download/system.json",
-  "download": "https://github.com/YOUR-GITHUB/Foundry-VTM-V20/releases/download/v1.1.5-ghouls.2/vtm-v20.zip",
+  "url": "https://github.com/fisherkyng-svg/VTMFoundryGhouls",
+  "manifest": "https://github.com/fisherkyng-svg/VTMFoundryGhouls/releases/latest/download/system.json",
+  "download": "https://github.com/fisherkyng-svg/VTMFoundryGhouls/releases/download/v1.1.5-ghouls.2/vtm-v20.zip",
   "authors": [{ "name": "The Final Artificer" }],
   "esmodules": ["vtm-v20.mjs"],
   "styles": ["styles/vtm-v20.css"],
