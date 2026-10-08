@@ -338,11 +338,15 @@ export function computeSoakPool(actor, { dmgType, fireOrSunlight = false, bypass
   const skinAdder = !!actor.getFlag('vtm-v20', 'skinOfTheAdder');
   const isAgg = dmgType === 'aggravated';
   const isKindred = isKindredActor(actor);
-  const isMortalLethal = dmgType === 'lethal' && (actor.type === 'mortal' || (isGhoul(actor) && !fortLevel));
-  const ghoulFortLethal = dmgType === 'lethal' && isGhoul(actor) && fortLevel > 0;
+  // Living bodies (mortals, ghouls) cannot soak lethal or aggravated damage with Stamina.
+  // Mortals cannot soak them at all; ghouls only with Fortitude dice.
+  const livingHard = isMortalBody(actor) && (dmgType === 'lethal' || isAgg);
+  const ghoulFort = isGhoul(actor) ? fortLevel : 0;
+  const isMortalLethal = livingHard && !ghoulFort;           // no soak roll at all
+  const ghoulFortLethal = livingHard && ghoulFort > 0;       // Fortitude dice only
 
   let useStamina = !ghoulFortLethal;
-  let armor = (bypassArmor || (isAgg && isKindred && fireOrSunlight)) ? 0 : armorRating;
+  let armor = (bypassArmor || (isAgg && isKindred && fireOrSunlight) || (isAgg && isMortalBody(actor))) ? 0 : armorRating;
 
   if (isAgg && isKindred) {
     useStamina = skinAdder && !fireOrSunlight;
@@ -354,9 +358,10 @@ export function computeSoakPool(actor, { dmgType, fireOrSunlight = false, bypass
 
   const parts = [];
   if (isMortalLethal) {
-    parts.push(isGhoul(actor) ? 'Ghoul without Fortitude cannot soak lethal damage' : 'Mortal cannot soak lethal damage');
+    const what = isAgg ? 'aggravated' : 'lethal';
+    parts.push(isGhoul(actor) ? `Ghoul without Fortitude cannot soak ${what} damage` : `Mortal cannot soak ${what} damage`);
   } else if (ghoulFortLethal) {
-    parts.push(`Fort ${fortLevel} (ghoul: Stamina does not soak lethal)`);
+    parts.push(`Fort ${fortLevel} (ghoul: Stamina does not soak ${isAgg ? 'aggravated' : 'lethal'})`);
     if (armor) parts.push(`Armor ${armor}`);
   } else if (isAgg && isKindred && !canSoak) {
     parts.push('No Fortitude, cannot soak aggravated damage');

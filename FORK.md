@@ -14,12 +14,14 @@ Create Actor → **Ghoul / Revenant**.
   - Bashing is not halved.
   - Daze threshold is Stamina.
   - There's no Kindred aggravated or sunlight prompt.
-  - **Fortitude** is the exception. A ghoul with Fortitude soaks lethal damage with Fortitude dice only, plus armor. Without Fortitude, it can't soak lethal at all, same as a mortal.
+  - **Fortitude** is the exception. A ghoul with Fortitude soaks lethal damage with Fortitude dice only, plus armor, and aggravated damage with Fortitude dice only. Without Fortitude, it can't soak lethal or aggravated at all, same as a mortal.
   - Fortitude also soaks fire.
 - **Revenants** show a reminder to regain 1 blood point each night. There's no automation for this.
 - **Character creation:** the chargen wizard stays vampire-only. Build ghouls by hand.
 
 All type checks route through `module/actor-kind.mjs`: `isKindred`, `hasVitae`, `isMortalBody`, `cannotSoakLethal`, `staminaSoaks`.
+
+**Mortals cannot soak aggravated damage.** Upstream lets mortals soak aggravated damage with Stamina plus armor. This fork follows V20 instead: no soak roll at all, the same as for lethal.
 
 ## 2. Path virtues start one dot lower
 
