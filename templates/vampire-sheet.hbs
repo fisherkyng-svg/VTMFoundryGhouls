@@ -26,7 +26,26 @@
       {{/if}}
     </div>
     <div class="header-row">
-      {{#if isVampire}}
+      {{#if isGhoul}}
+      <div class="field">
+        <label>Variety</label>
+        <select name="system.variety">
+          <option value="ghoul" {{#if (eq system.variety "ghoul")}}selected{{/if}}>Ghoul</option>
+          <option value="revenant" {{#if (eq system.variety "revenant")}}selected{{/if}}>Revenant</option>
+        </select>
+      </div>
+      {{#if isRevenant}}
+      <div class="field">
+        <label>Family</label>
+        <input type="text" name="system.family" value="{{system.family}}" placeholder="Bratovich, Grimaldi, Obertus, Zantosa…" />
+      </div>
+      {{/if}}
+      <div class="field">
+        <label>Blood Pool Max</label>
+        <input type="number" name="system.blood.max" value="{{system.blood.max}}" min="0" max="20" />
+      </div>
+      {{/if}}
+      {{#if isKindred}}
       <div class="field">
         <label>Clan{{#if clanInfo}} <span class="arch-info"><i class="fas fa-exclamation-circle"></i><span class="arch-pop"><b>{{system.clan}} Weakness</b>{{clanInfo.body}}</span></span>{{/if}}</label>
         <select name="system.clan">
@@ -61,10 +80,16 @@
       </div>
     </div>
     <div class="header-row">
-      {{#if isVampire}}
+      {{#if isKindred}}
       <div class="field">
         <label>Sire</label>
         <input type="text" name="system.sire" value="{{system.sire}}" />
+      </div>
+      {{/if}}
+      {{#if isGhoul}}
+      <div class="field">
+        <label>{{#if isRevenant}}Regnant{{else}}Domitor{{/if}}</label>
+        <input type="text" name="system.domitor" value="{{system.domitor}}" />
       </div>
       {{/if}}
       <div class="field">
@@ -409,7 +434,24 @@
       </div>
 
       <div class="status-column">
-        {{#if isVampire}}
+        {{#if isGhoul}}
+        <div class="section-block">
+          <h3>{{#if isRevenant}}Revenant{{else}}Ghoul{{/if}}</h3>
+          <div class="gen-info">
+            <span>Max trait rating: <span class="gen-val">{{traitMax}}</span></span>
+            <span class="gen-sep">·</span>
+            <span>Blood per turn: <span class="gen-val">{{bloodPerTurn}}</span></span>
+          </div>
+          <div class="gen-info">
+            {{#if isRevenant}}
+            <span>Vitae is generated naturally: regain 1 blood point each night.</span>
+            {{else}}
+            <span>Does not age while fed vitae at least monthly. Damage as a mortal.</span>
+            {{/if}}
+          </div>
+        </div>
+        {{/if}}
+        {{#if isKindred}}
         <div class="section-block">
           <h3>Generation Info</h3>
           <div class="gen-info">
@@ -507,7 +549,7 @@
             <button type="button" class="sit-check-btn awaken-btn"><i class="fas fa-sun"></i> Awakening</button>
             <button type="button" class="sit-check-btn electro-btn"><i class="fas fa-bolt"></i> Electrocution</button>
             <button type="button" class="sit-check-btn fire-btn"><i class="fas fa-fire"></i> Fire</button>
-            {{#if isVampire}}
+            {{#if isKindred}}
             <button type="button" class="sit-check-btn sunlight-btn"><i class="fas fa-cloud-sun"></i> Sunlight</button>
             <button type="button" class="sit-check-btn frenzy-check-btn"><i class="fas fa-paw"></i> Frenzy</button>
             <button type="button" class="sit-check-btn rotschreck-btn"><i class="fas fa-running"></i> R&ouml;tschreck</button>

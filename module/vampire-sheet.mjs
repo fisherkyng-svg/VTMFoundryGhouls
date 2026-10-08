@@ -10,6 +10,7 @@ import { clanWeaknessInfo, clanItemInfo, clanOptions } from './clan-weaknesses.m
 import { disciplineLevel, isDisciplineActive, potenceLevel, potenceAutoSuccesses, celerityLevel, effectiveTraitValue, effectiveStrength, usesStrengthTrait } from './discipline-effects.mjs';
 import { exportSheet } from './sheet-export.mjs';
 import { computeCarry } from './movement.mjs';
+import { isKindred, isGhoul, hasVitae, cannotSoakLethal, staminaSoaks } from './actor-kind.mjs';
 import { trackSize, countDamage, rebuildTrack } from './health-track.mjs';
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -213,7 +214,10 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const sys = actor.system;
     ctx.system = sys;
     ctx.actor = actor;
-    ctx.isVampire = actor.type === 'vampire';
+    ctx.isVampire = hasVitae(actor);          // vampire sheet layout (ghouls too)
+    ctx.isKindred = isKindred(actor);         // undead-only: clan, generation, frenzy, sunlight
+    ctx.isGhoul = isGhoul(actor);
+    ctx.isRevenant = isGhoul(actor) && sys.variety === 'revenant';
     ctx.targetingEnabled = actor.getFlag('vtm-v20', 'targetingEnabled') === true;
     const flankMode = actor.getFlag('vtm-v20', 'flankMode');
     ctx.flankAttack = flankMode === 'flank';
@@ -360,7 +364,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       tackle: true,
       note: 'Both combatants save Dex + Athletics (diff 7) or are knocked down',
     });
-    if (actor.type === 'vampire') {
+    if (isKindred(actor)) {
       // Skin of the Adder sharpens the fangs: +1 bite damage while active
       const biteDmg = actor.getFlag('vtm-v20', 'skinOfTheAdder') ? 'Str+2' : 'Str+1';
       attacks.push({
@@ -738,7 +742,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       cssClass: ['', 'bashing', 'lethal', 'aggravated'][v]
     }));
     ctx.healthTrack.splice(1, 0, ...extraRows);
-    if (actor.type === 'vampire') {
+    if (isKindred(actor)) {
       ctx.healthTrack.push({ key: 'torpor', label: 'Torpor', penalty: null, desc: healthDescs.torpor, infoOnly: true });
     }
 
@@ -760,18 +764,18 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Hunger threshold: blood at or below 7 minus Self-Control/Instinct
     const hungerVirtue = sys.virtues?.selfControl || 0;
     ctx.hungerThreshold = Math.max(7 - hungerVirtue, 0);
-    ctx.hungry = this.document.type === 'vampire' && (sys.blood?.value ?? 0) <= ctx.hungerThreshold;
+    ctx.hungry = isKindred(this.document) && (sys.blood?.value ?? 0) <= ctx.hungerThreshold;
     ctx.hungerLabel = actor.getFlag('vtm-v20', 'virtueLabels')?.selfControl || game.i18n.localize('VTM.SelfControl');
     ctx.natureInfo = archetypeAuthentic(sys.nature) || archetypeInfo(sys.nature);
     ctx.demeanorInfo = archetypeAuthentic(sys.demeanor) || archetypeInfo(sys.demeanor);
-    ctx.clanInfo = this.document.type === 'vampire' ? (clanItemInfo(sys.clan) || clanAuthentic(sys.clan) || clanWeaknessInfo(sys.clan)) : null;
-    ctx.humanityTip = this.document.type === 'vampire' && sys.pathName === 'Humanity';
+    ctx.clanInfo = isKindred(this.document) ? (clanItemInfo(sys.clan) || clanAuthentic(sys.clan) || clanWeaknessInfo(sys.clan)) : null;
+    ctx.humanityTip = isKindred(this.document) && sys.pathName === 'Humanity';
     ctx.bloodPerTurn = sys.bloodPerTurn || 1;
     ctx.traitMax = sys.traitMax || 5;
     ctx.woundPenalty = sys.rawWoundPenalty || sys.woundPenalty || 0;
     const inFrenzy = hasStatus(FRENZY_STATUS_ID, actor);
     const inRotschreck = hasStatus(ROTSCHRECK_STATUS_ID, actor);
-    ctx.frenzied = this.document.type === 'vampire' && (inFrenzy || inRotschreck);
+    ctx.frenzied = isKindred(this.document) && (inFrenzy || inRotschreck);
     ctx.frenzyName = inFrenzy ? 'Frenzy' : 'R\u00f6tschreck';
     // Same art as the token status effect
     const statusImg = id => CONFIG.statusEffects?.find(e => e.id === id)?.img;
@@ -780,7 +784,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? 'Spend 1 Willpower to control one of your actions for a turn; the frenzy continues.'
       : 'Spend 1 Willpower to keep control for one turn.';
     ctx.brujahFrenzyNote = inFrenzy && /brujah/i.test(sys.clan || '');
-    ctx.frenzyInstinct = this.document.type === 'vampire' && inFrenzy
+    ctx.frenzyInstinct = isKindred(this.document) && inFrenzy
       && /instinct/i.test(actor.getFlag('vtm-v20', 'virtueLabels')?.selfControl || '');
     ctx.woundsIgnored = !!actor.getFlag('vtm-v20', 'wpIgnoreWounds');
 
@@ -1046,7 +1050,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
 
     // Blood buff UI for physical attributes
-    if (this.document.type === 'vampire') this._renderBloodBuffUI(el, canEdit);
+    if (hasVitae(this.document)) this._renderBloodBuffUI(el, canEdit);
 
     // Health, WP temp, blood (always interactive)
     el.querySelectorAll('.health-box').forEach(box =>
@@ -1202,7 +1206,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     el.querySelector('.rotschreck-btn')?.addEventListener('click', () => this._rollRotschreck());
     el.querySelector('.end-frenzy-btn')?.addEventListener('click', () => this._endFrenzy());
     el.querySelector('.ride-wave-btn')?.addEventListener('click', () => this._rideTheWave());
-    el.classList.toggle('frenzied', this.document.type === 'vampire'
+    el.classList.toggle('frenzied', isKindred(this.document)
       && (hasStatus(FRENZY_STATUS_ID, this.document) || hasStatus(ROTSCHRECK_STATUS_ID, this.document)));
 
     el.querySelector('.wp-spend-btn:not(.wp-ignore-wounds-btn)')?.addEventListener('click', () => this._toggleWpSpend());
@@ -1568,7 +1572,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._syncMovementDrawer(this._movementActive);
 
     this._syncCombatDrawer();
-    if (this.document.type === 'vampire') this._syncBloodBudgetPanel();
+    if (hasVitae(this.document)) this._syncBloodBudgetPanel();
     this._syncDeclTimer();
 
     this._setupPortrait(el);
@@ -1669,7 +1673,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   _openChargen() {
-    if (this._chargen || this.document.type !== 'vampire') return;
+    if (this._chargen || !isKindred(this.document)) return;
     const body = this.element.querySelector('.window-content') || this.element.querySelector('form');
     if (!body) return;
     body.classList.add('chargen-fade-out');
@@ -4396,7 +4400,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!dmgType) return;
 
     let fireOrSunlight = false;
-    if (dmgType === 'aggravated' && actor.type === 'vampire') {
+    if (dmgType === 'aggravated' && isKindred(actor)) {
       fireOrSunlight = await new Promise(resolve => {
         new Dialog({
           title: 'Aggravated Damage Source',
@@ -5340,7 +5344,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _rollElectrocution() {
     const actor = this.document;
     const sources = VampireSheet.ELECTRO_SOURCES;
-    const pullDiff = actor.type === 'vampire' ? 5 : 9;
+    const pullDiff = isKindred(actor) ? 5 : 9;
 
     const options = Object.entries(sources)
       .map(([k, s]) => `<option value="${k}">${s.label}: ${s.levels}/turn</option>`)
@@ -5402,8 +5406,8 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       portraitStyle = `object-position: calc(50% + ${(pFlags.offX * r).toFixed(1)}px) calc(50% + ${(pFlags.offY * r).toFixed(1)}px); transform: scale(${pFlags.scale});`;
     }
 
-    // Mortals cannot soak lethal: the current simply cooks them
-    if (actor.type === 'mortal') {
+    // Mortals (and ghouls without Fortitude) cannot soak lethal: the current simply cooks them
+    if (cannotSoakLethal(actor)) {
       await applyHealthDamage(actor, incoming, dmgType);
       await checkIncapacitated(actor);
       const cond = getCondition(actor);
@@ -5432,7 +5436,8 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Vampires soak with Stamina + Fortitude, no armor. A botched soak fries
     // blood and brain: the whole jolt lands as aggravated.
-    const stamina = effectiveTraitValue(actor, 'attributes.stamina');
+    // Ghouls reach this point only with Fortitude, which alone soaks the lethal jolt
+    const stamina = staminaSoaks(actor, dmgType) ? effectiveTraitValue(actor, 'attributes.stamina') : 0;
     const fort = Array.from(actor.items).find(i => i.type === 'discipline' && i.name.toLowerCase() === 'fortitude');
     const fortLevel = fort?.system.level || 0;
     const pool = Math.max(stamina + fortLevel, 1);
@@ -5544,13 +5549,13 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Only Fortitude soaks fire; mortals and Fortitude-less Kindred just burn
     const fort = Array.from(actor.items).find(i => i.type === 'discipline' && i.name.toLowerCase() === 'fortitude');
-    const fortLevel = actor.type === 'vampire' ? (fort?.system.level || 0) : 0;
+    const fortLevel = hasVitae(actor) ? (fort?.system.level || 0) : 0;
 
     let roll = null;
     let soakDice = [];
     let soaked = 0;
     let soakSkipped = true;
-    let soakLabel = actor.type === 'vampire'
+    let soakLabel = hasVitae(actor)
       ? 'No Fortitude: fire cannot be soaked'
       : 'Mortals cannot soak fire';
     if (fortLevel > 0) {
@@ -6158,7 +6163,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
 
     // Build soak label for the card
-    const stamina = effectiveTraitValue(actor, 'attributes.stamina');
+    const stamina = staminaSoaks(actor, dmgType) ? effectiveTraitValue(actor, 'attributes.stamina') : 0;
     const fort = Array.from(actor.items).find(i => i.type === 'discipline' && i.name.toLowerCase() === 'fortitude');
     const fortLevel = fort?.system.level || 0;
     const fullArmor = Array.from(actor.items)
@@ -6177,7 +6182,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       portraitStyle = `object-position: calc(50% + ${(pFlags.offX * r).toFixed(1)}px) calc(50% + ${(pFlags.offY * r).toFixed(1)}px); transform: scale(${pFlags.scale});`;
     }
 
-    if (actor.type === 'mortal' && dmgType === 'lethal') {
+    if (cannotSoakLethal(actor) && dmgType === 'lethal') {
       await applyHealthDamage(actor, total, dmgType);
       await checkIncapacitated(actor);
       const cond = getCondition(actor);
@@ -6230,7 +6235,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   // Soak roll for falling damage, called from the chat button hook
   async _rollFallingSoak(fallData) {
     const actor = this.document;
-    if (actor.type === 'mortal' && String(fallData.dmgType || '').toLowerCase() === 'lethal') {
+    if (cannotSoakLethal(actor) && String(fallData.dmgType || '').toLowerCase() === 'lethal') {
       const net = Math.max(Number(fallData.dmgTotal) || 0, 0);
       if (net > 0) await applyHealthDamage(actor, net, fallData.dmgType);
       await checkIncapacitated(actor);
@@ -6268,7 +6273,7 @@ export class VampireSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
 
-    const stamina = effectiveTraitValue(actor, 'attributes.stamina');
+    const stamina = staminaSoaks(actor, fallData.dmgType) ? effectiveTraitValue(actor, 'attributes.stamina') : 0;
     const fort = Array.from(actor.items).find(i => i.type === 'discipline' && i.name.toLowerCase() === 'fortitude');
     const fortLevel = fort?.system.level || 0;
     const fullArmor = Array.from(actor.items)

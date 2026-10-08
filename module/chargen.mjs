@@ -1,4 +1,5 @@
 import { VTM } from './config.mjs';
+import { virtueBase } from './path-virtues.mjs';
 import { TRAIT_DESCRIPTIONS } from './trait-descriptions.mjs';
 import { clanOptions, clanDisciplinesFor } from './clan-weaknesses.mjs';
 
@@ -184,9 +185,18 @@ export class ChargenWizard {
     return max - this.d[type].reduce((s, i) => s + i.dots, 0);
   }
 
-  _virtuePool() {
+  _virtueBase(key) {
+    if (key === 'courage') return 1;
+    return virtueBase(this.d.virtueLabels[key]);
+  }
+
+  _virtueSpent(except = null) {
     const v = this.d.virtues;
-    return VIRTUE_POOL - (v.conscience - 1) - (v.selfControl - 1) - (v.courage - 1);
+    return Object.keys(v).reduce((s, k) => k === except ? s : s + (v[k] - this._virtueBase(k)), 0);
+  }
+
+  _virtuePool() {
+    return VIRTUE_POOL - this._virtueSpent();
   }
 
   _freebiesLeft() {
@@ -496,7 +506,12 @@ export class ChargenWizard {
 
     el.querySelectorAll('.virtue-name-select').forEach(sel => {
       sel.addEventListener('change', () => {
-        this.d.virtueLabels[sel.dataset.key] = sel.value;
+        const key = sel.dataset.key;
+        const before = this._virtueBase(key);
+        this.d.virtueLabels[key] = sel.value;
+        const delta = this._virtueBase(key) - before;
+        if (delta) this.d.virtues[key] = Math.min(5, Math.max(this._virtueBase(key), this.d.virtues[key] + delta));
+        this.sheet.render();
       });
     });
 
@@ -506,16 +521,17 @@ export class ChargenWizard {
         const val = parseInt(dot.dataset.value);
         const cur = this.d.virtues[key];
         const next = val === cur ? val - 1 : val;
-        if (next < 1 || next > 5) return;
+        const base = this._virtueBase(key);
+        if (next < base || next > 5) return;
 
         const v = this.d.virtues;
-        const otherSpent = Object.entries(v).reduce((s, [k, n]) => k === key ? s : s + (n - 1), 0);
-        if (otherSpent + (next - 1) > VIRTUE_POOL) return;
+        const otherSpent = this._virtueSpent(key);
+        if (otherSpent + (next - base) > VIRTUE_POOL) return;
 
         v[key] = next;
         this._refreshDots(dot.closest('.virtue-dots'), next);
         const counter = el.querySelector('.virtue-pool-count');
-        if (counter) counter.textContent = VIRTUE_POOL - otherSpent - (next - 1);
+        if (counter) counter.textContent = VIRTUE_POOL - otherSpent - (next - base);
       });
     });
   }
@@ -656,7 +672,7 @@ export class ChargenWizard {
         if (!d.bg.length) return 'Drag at least one background from the compendium.';
         const bgSpent = d.bg.reduce((s, x) => s + x.dots, 0);
         if (bgSpent < BG_POOL) return `Assign all ${BG_POOL} background dots.`;
-        const vSpent = (d.virtues.conscience - 1) + (d.virtues.selfControl - 1) + (d.virtues.courage - 1);
+        const vSpent = this._virtueSpent();
         if (vSpent < VIRTUE_POOL) return `Spend all ${VIRTUE_POOL} virtue dots.`;
         return null;
       }

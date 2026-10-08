@@ -15,6 +15,7 @@ import {
 } from './status-effects.mjs';
 import { disciplineLevel, isStrengthDamageFormula, effectiveTraitValue, effectiveStrength, potenceAutoSuccesses, usesStrengthTrait } from './discipline-effects.mjs';
 import { trackSize, countDamage, rebuildTrack } from './health-track.mjs';
+import { isKindred as isKindredActor, isGhoul, hasVitae, isMortalBody } from './actor-kind.mjs';
 
 const TARGETING_ARMOR_REQUESTS = new Map();
 
@@ -323,7 +324,7 @@ function calcDmgPool(formula, str, netSucc) {
 export function finalDamageAfterSoak(actor, amount, type) {
   const net = Math.max(amount, 0);
   const damageType = String(type || '').toLowerCase();
-  return actor?.type === 'vampire' && damageType === 'bashing' ? Math.floor(net / 2) : net;
+  return isKindredActor(actor) && damageType === 'bashing' ? Math.floor(net / 2) : net;
 }
 
 export function computeSoakPool(actor, { dmgType, fireOrSunlight = false, bypassArmor = false } = {}) {
@@ -336,10 +337,11 @@ export function computeSoakPool(actor, { dmgType, fireOrSunlight = false, bypass
 
   const skinAdder = !!actor.getFlag('vtm-v20', 'skinOfTheAdder');
   const isAgg = dmgType === 'aggravated';
-  const isKindred = actor.type === 'vampire';
-  const isMortalLethal = actor.type === 'mortal' && dmgType === 'lethal';
+  const isKindred = isKindredActor(actor);
+  const isMortalLethal = dmgType === 'lethal' && (actor.type === 'mortal' || (isGhoul(actor) && !fortLevel));
+  const ghoulFortLethal = dmgType === 'lethal' && isGhoul(actor) && fortLevel > 0;
 
-  let useStamina = true;
+  let useStamina = !ghoulFortLethal;
   let armor = (bypassArmor || (isAgg && isKindred && fireOrSunlight)) ? 0 : armorRating;
 
   if (isAgg && isKindred) {
@@ -352,7 +354,10 @@ export function computeSoakPool(actor, { dmgType, fireOrSunlight = false, bypass
 
   const parts = [];
   if (isMortalLethal) {
-    parts.push('Mortal cannot soak lethal damage');
+    parts.push(isGhoul(actor) ? 'Ghoul without Fortitude cannot soak lethal damage' : 'Mortal cannot soak lethal damage');
+  } else if (ghoulFortLethal) {
+    parts.push(`Fort ${fortLevel} (ghoul: Stamina does not soak lethal)`);
+    if (armor) parts.push(`Armor ${armor}`);
   } else if (isAgg && isKindred && !canSoak) {
     parts.push('No Fortitude, cannot soak aggravated damage');
   } else if (isAgg && isKindred) {
@@ -422,7 +427,7 @@ function attackPool(actor, atk) {
 
 function dazeThreshold(actor) {
   const stamina = actor.system.attributes?.stamina || 0;
-  return actor.type === 'mortal' ? stamina : stamina + 2;
+  return isMortalBody(actor) ? stamina : stamina + 2;
 }
 
 async function applyDazed(actor) {
@@ -1740,7 +1745,7 @@ async function rollKissResist(defender, virtueLabel) {
   let hCapped = false;
   const hum = defender.system.humanity;
   if (hum !== undefined && pool > hum) { pool = hum; hCapped = true; }
-  if (defender.type === 'vampire') {
+  if (hasVitae(defender)) {
     const bp = defender.system.blood?.value || 0;
     if (bp < pool) { pool = bp; capped = true; }
   }
@@ -1821,12 +1826,12 @@ export async function rollDamage(msg) {
   // V20: gunfire only bruises the dead. Bullets are bashing against Kindred
   // unless the shot was aimed at the head.
   const headShot = !!c.targetingHeadshot;
-  const firearmDowngrade = !!c.isFirearm && defender.type === 'vampire'
+  const firearmDowngrade = !!c.isFirearm && isKindredActor(defender)
     && String(dt).toLowerCase() === 'lethal' && !headShot;
   if (firearmDowngrade) dt = 'bashing';
   const firearmNote = firearmDowngrade
     ? 'Gunfire is bashing against Kindred.'
-    : (c.isFirearm && defender.type === 'vampire' && headShot ? 'Head shot: bullets stay lethal.' : null);
+    : (c.isFirearm && isKindredActor(defender) && headShot ? 'Head shot: bullets stay lethal.' : null);
   const damageType = String(dt).toLowerCase();
 
   // Disarm: the damage roll is measured against the target's effective
@@ -1875,7 +1880,7 @@ export async function rollDamage(msg) {
 
   // Soak roll
   const isAgg = damageType === 'aggravated';
-  const isKindred = defender.type === 'vampire';
+  const isKindred = isKindredActor(defender);
   let fireOrSunlight = false;
 
   if (isAgg && isKindred && !c.isBite) {
@@ -1911,7 +1916,7 @@ export async function rollDamage(msg) {
   // penetrate. Mortals get no resist option, they are helpless in its ecstasy.
   const kissMode = c.biteKiss === true;
   const kissPenetrated = kissMode && rawNet > 0;
-  const kissCanResist = kissPenetrated && defender.type === 'vampire';
+  const kissCanResist = kissPenetrated && isKindredActor(defender);
   const threshold = dazeThreshold(defender);
   let dazed = false;
   if (!kissMode) {

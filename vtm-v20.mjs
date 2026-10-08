@@ -1,5 +1,7 @@
 import { VTM } from './module/config.mjs';
 import { VampireData } from './module/vampire-data.mjs';
+import { GhoulData } from './module/ghoul-data.mjs';
+import { registerPathVirtueSettings, registerPathVirtueHooks } from './module/path-virtues.mjs';
 import { MortalData } from './module/mortal-data.mjs';
 import { DisciplineData, BackgroundData, MeritData, WeaponData, ArmorData, EquipmentData, ContainerData, PathData, RitualData, ClanData } from './module/item-data.mjs';
 import { VampireSheet } from './module/vampire-sheet.mjs';
@@ -265,6 +267,7 @@ Hooks.once('init', () => {
 
   CONFIG.Actor.dataModels.vampire = VampireData;
   CONFIG.Actor.dataModels.mortal = MortalData;
+  CONFIG.Actor.dataModels.ghoul = GhoulData;
   CONFIG.Item.dataModels.discipline = DisciplineData;
   CONFIG.Item.dataModels.background = BackgroundData;
   CONFIG.Item.dataModels.merit = MeritData;
@@ -288,7 +291,7 @@ Hooks.once('init', () => {
   };
 
   Actors.registerSheet('vtm-v20', VampireSheet, {
-    types: ['vampire', 'mortal'],
+    types: ['vampire', 'mortal', 'ghoul'],
     makeDefault: true,
     label: 'VTM.SheetVampire'
   });
@@ -309,6 +312,9 @@ Hooks.once('init', () => {
     type: AuthenticTextManager,
     restricted: true,
   });
+
+  registerPathVirtueSettings();
+  registerPathVirtueHooks();
 
   game.settings.register('vtm-v20', 'moneyAnimation', {
     name: 'Money Change Animation',
@@ -422,14 +428,14 @@ Hooks.once('ready', () => {
   if (game.user.isGM && !game.settings.get('vtm-v20', 'movementBarMigrated')) {
     (async () => {
       for (const actor of game.actors) {
-        if (!['vampire', 'mortal'].includes(actor.type)) continue;
+        if (!['vampire', 'mortal', 'ghoul'].includes(actor.type)) continue;
         if (actor.prototypeToken?.bar2?.attribute === 'blood') {
           await actor.update({ 'prototypeToken.bar2.attribute': 'movement.current' });
         }
       }
       for (const scene of game.scenes) {
         const updates = scene.tokens
-          .filter(t => ['vampire', 'mortal'].includes(t.actor?.type) && t.bar2?.attribute === 'blood')
+          .filter(t => ['vampire', 'mortal', 'ghoul'].includes(t.actor?.type) && t.bar2?.attribute === 'blood')
           .map(t => ({ _id: t.id, 'bar2.attribute': 'movement.current' }));
         if (updates.length) await scene.updateEmbeddedDocuments('Token', updates);
       }

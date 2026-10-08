@@ -1,6 +1,7 @@
 {
   "TYPES.Actor.vampire": "Vampire",
   "TYPES.Actor.mortal": "Mortal",
+  "TYPES.Actor.ghoul": "Ghoul / Revenant",
   "TYPES.Item.discipline": "Discipline",
   "TYPES.Item.background": "Background",
   "TYPES.Item.merit": "Merit / Flaw",
