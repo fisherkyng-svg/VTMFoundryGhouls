@@ -5649,14 +5649,36 @@ textarea#chat-message {
   border: 1px solid var(--vtm-border, #444); border-radius: 4px; padding: 6px;
   font-size: 11px; font-family: inherit;
 }
-.authentic-manager prose-mirror.atm-slot-editor, .authentic-manager prose-mirror.atm-row-editor {
-  display: block; margin: 0 8px 8px; min-height: 90px;
+/* Authentic Text Manager editors. Core lays prose-mirror out as a flex
+   column whose .editor-content (and the </> source view) is absolutely
+   positioned inside .editor-container, so the box must keep core's display
+   and get a real height while open, or the text and source view collapse to
+   nothing and float over the toolbar. Closed, it sizes to its text the same
+   way the item sheet's description editors do. Open is detected by the
+   toolbar (.editor-menu), which only exists while editing. */
+.authentic-manager prose-mirror.atm-slot-editor,
+.authentic-manager prose-mirror.atm-row-editor {
+  margin: 0 8px 8px;
+  height: auto; min-height: 40px; max-height: none;
   background: var(--vtm-bg, #141011); color: var(--vtm-text, #ccc);
-  border: 1px solid var(--vtm-border, #444); border-radius: 4px; padding: 6px;
+  border: 1px solid var(--vtm-border, #444); border-radius: 4px;
   font-size: 13px; line-height: 1.45;
 }
-.authentic-manager prose-mirror.atm-slot-editor.active, .authentic-manager prose-mirror.atm-row-editor.active {
-  min-height: 260px;
+.authentic-manager prose-mirror.atm-slot-editor:not(:has(.editor-menu)) .editor-container,
+.authentic-manager prose-mirror.atm-row-editor:not(:has(.editor-menu)) .editor-container {
+  overflow: visible;
+}
+.authentic-manager prose-mirror.atm-slot-editor:not(:has(.editor-menu)) .editor-content,
+.authentic-manager prose-mirror.atm-row-editor:not(:has(.editor-menu)) .editor-content {
+  position: static; overflow: visible; padding: 6px 8px;
+}
+.authentic-manager prose-mirror.atm-slot-editor:has(.editor-menu),
+.authentic-manager prose-mirror.atm-row-editor:has(.editor-menu) {
+  height: 380px; resize: vertical; overflow: hidden;
+}
+.authentic-manager prose-mirror.atm-slot-editor:has(.editor-menu) .editor-content,
+.authentic-manager prose-mirror.atm-row-editor:has(.editor-menu) .editor-content {
+  padding: 6px 8px;
 }
 .authentic-manager prose-mirror p { margin: 0 0 0.6em; }
 .authentic-manager prose-mirror table { width: 100%; border-collapse: collapse; margin: 0.4em 0; }
