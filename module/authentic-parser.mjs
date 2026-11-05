@@ -212,6 +212,15 @@ function toHtml(lines) {
   }).join('');
 }
 
+// Browse-mode saves: plain text typed or pasted into one slot becomes the same
+// HTML a parsed capture gets (blank line = new paragraph, bold System:, rows
+// on their own line). Text that already holds HTML is left alone.
+export function plainToHtml(raw) {
+  const text = fixHyphens(String(raw ?? '').replace(/\r\n?/g, '\n')).trim();
+  if (!text || /<\/?[a-z][^>]*>/i.test(text)) return text;
+  return toHtml(text.split('\n'));
+}
+
 function toPlain(lines) {
   return reflow(lines).filter(l => !l.blank).map(l => l.text).join('\n')
     .replace(/\n(?!•)/g, ' ').trim();

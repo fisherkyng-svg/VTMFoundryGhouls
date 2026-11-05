@@ -3,7 +3,8 @@
 // world. Shipped system files never change; everything lands in a world
 // setting and gets picked up at compendium build time.
 
-import { parseAuthenticText } from './authentic-parser.mjs';
+import { parseAuthenticText, plainToHtml } from './authentic-parser.mjs';
+import { pushToSheets } from './authentic-push.mjs';
 import { buildCatalog, listSlots } from './authentic-catalog.mjs';
 import { getOverrides, setOverrides, getRev, getAppliedRev } from './authentic-store.mjs';
 import { populateCompendiums } from './compendiums.mjs';
@@ -21,6 +22,10 @@ const CATEGORY_PREFIXES = {
   'Attributes & Abilities': ['trait:'],
 };
 
+// Slots whose text lands in an HTML field on an item. Archetype, clan and
+// trait slots are read as plain text by their consumers, so they stay plain.
+const HTML_SLOT = /^(?:discipline|path|background|merit|flaw|ritual|ritualcat):/;
+
 export class AuthenticTextManager extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: 'authentic-text-manager',
@@ -35,6 +40,7 @@ export class AuthenticTextManager extends HandlebarsApplicationMixin(Application
       exportJson: AuthenticTextManager.#onExport,
       importJson: AuthenticTextManager.#onImport,
       rebuild: AuthenticTextManager.#onRebuild,
+      pushSheets: AuthenticTextManager.#onPushSheets,
       saveSlot: AuthenticTextManager.#onSaveSlot,
       clearSlot: AuthenticTextManager.#onClearSlot,
       resetCategory: AuthenticTextManager.#onResetCategory,
@@ -223,12 +229,20 @@ export class AuthenticTextManager extends HandlebarsApplicationMixin(Application
     this.render();
   }
 
+  static async #onPushSheets() {
+    if (getRev() > getAppliedRev()) {
+      ui.notifications.warn('Rebuild the compendiums first so new drags and pushed sheets match.');
+    }
+    await pushToSheets();
+  }
+
   static async #onSaveSlot(_ev, target) {
     const key = target.dataset.key;
     const ta = this.element.querySelector(`.atm-slot-text[data-key="${CSS.escape(key)}"]`);
     if (!ta) return;
     const ov = { ...getOverrides() };
-    const val = ta.value.trim();
+    let val = ta.value.trim();
+    if (val && HTML_SLOT.test(key)) val = plainToHtml(val);
     if (val) ov[key] = val;
     else delete ov[key];
     await setOverrides(ov);

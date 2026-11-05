@@ -16,6 +16,8 @@
       <p class="atm-rebuild-note">After applying pasted text, rebuild so the compendium entries pick it up.</p>
       <button type="button" data-action="rebuild"><i class="fas fa-sync"></i> Rebuild Compendiums</button>
       {{/if}}
+      <p class="atm-rebuild-note">Characters keep the text from when an item was dragged on. Push to bring their copies up to date.</p>
+      <button type="button" data-action="pushSheets"><i class="fas fa-user-edit"></i> Push to Sheets</button>
       <button type="button" data-action="exportJson"><i class="fas fa-file-export"></i> Export</button>
       <button type="button" data-action="importJson"><i class="fas fa-file-import"></i> Import</button>
     </div>
@@ -94,7 +96,7 @@
           <span class="atm-slot-state">{{#if has}}<i class="fas fa-book"></i>{{else}}<i class="fas fa-robot"></i>{{/if}}</span>
           <span class="atm-row-label">{{label}}</span>
         </summary>
-        <textarea class="atm-slot-text" data-key="{{key}}" placeholder="Paste the text for this entry alone...">{{value}}</textarea>
+        <textarea class="atm-slot-text" data-key="{{key}}" placeholder="Paste the text for this entry alone. Leave a blank line between paragraphs; formatting is added on Save.">{{value}}</textarea>
         <div class="atm-slot-actions">
           <button type="button" data-action="saveSlot" data-key="{{key}}">Save</button>
           {{#if has}}<button type="button" data-action="clearSlot" data-key="{{key}}">Use shipped text</button>{{/if}}
