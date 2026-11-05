@@ -79,6 +79,8 @@ export class AuthenticTextManager extends HandlebarsApplicationMixin(Application
         ...s,
         value: ov[s.key] || '',
         has: !!ov[s.key],
+        rich: HTML_SLOT.test(s.key),
+        html: HTML_SLOT.test(s.key) ? plainToHtml(ov[s.key] || '') : '',
       }));
     }
 
@@ -115,6 +117,7 @@ export class AuthenticTextManager extends HandlebarsApplicationMixin(Application
       results: this.results ? {
         rows: this.results.captures.map((c, idx) => ({
           idx, key: c.key, label: c.label, text: c.text,
+          rich: HTML_SLOT.test(c.key),
           warn: c.status === 'warn', checked: c.checked !== false,
           notes: c.notes.join('; '),
           chars: c.text.replace(/<[^>]+>/g, '').length,
@@ -144,6 +147,38 @@ export class AuthenticTextManager extends HandlebarsApplicationMixin(Application
       const idx = Number(ev.currentTarget.dataset.idx);
       if (this.results?.captures[idx]) this.results.captures[idx].text = ev.currentTarget.value;
     }));
+
+    // Rich editors (Foundry's <prose-mirror>, toggled like the item sheets).
+    // The element fires "save" when its save button is pressed and "change"
+    // when its value changes; either one carries the final HTML, so both are
+    // handled and a repeat of the same value is ignored.
+    for (const pm of el.querySelectorAll('prose-mirror.atm-row-editor')) {
+      const onSave = () => {
+        const idx = Number(pm.dataset.idx);
+        const cap = this.results?.captures[idx];
+        if (cap && typeof pm.value === 'string') cap.text = pm.value;
+      };
+      pm.addEventListener('save', onSave);
+      pm.addEventListener('change', onSave);
+    }
+    for (const pm of el.querySelectorAll('prose-mirror.atm-slot-editor')) {
+      const onSave = () => this.#saveRich(pm.dataset.key, pm.value);
+      pm.addEventListener('save', onSave);
+      pm.addEventListener('change', onSave);
+    }
+  }
+
+  async #saveRich(key, value) {
+    if (!key || typeof value !== 'string') return;
+    const ov = getOverrides();
+    const val = value.trim();
+    const empty = !val.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+    if ((ov[key] || '') === (empty ? '' : val)) return;
+    const next = { ...ov };
+    if (empty) delete next[key];
+    else next[key] = val;
+    await setOverrides(next);
+    this.render();
   }
 
   static async #onParse() {

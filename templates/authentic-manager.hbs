@@ -53,7 +53,11 @@
           <span class="atm-row-label">{{label}}</span>
           <span class="atm-row-meta">{{chars}} chars{{#if notes}} &middot; {{notes}}{{/if}}</span>
         </summary>
+        {{#if rich}}
+        <prose-mirror class="atm-row-editor" data-idx="{{idx}}" toggled value="{{text}}">{{{text}}}</prose-mirror>
+        {{else}}
         <textarea class="atm-row-text" data-idx="{{idx}}">{{text}}</textarea>
+        {{/if}}
       </details>
       {{/each}}
     </div>
@@ -96,11 +100,18 @@
           <span class="atm-slot-state">{{#if has}}<i class="fas fa-book"></i>{{else}}<i class="fas fa-robot"></i>{{/if}}</span>
           <span class="atm-row-label">{{label}}</span>
         </summary>
-        <textarea class="atm-slot-text" data-key="{{key}}" placeholder="Paste the text for this entry alone. Leave a blank line between paragraphs; formatting is added on Save.">{{value}}</textarea>
+        {{#if rich}}
+        <prose-mirror class="atm-slot-editor" data-key="{{key}}" toggled value="{{html}}">{{{html}}}</prose-mirror>
+        <div class="atm-slot-actions">
+          {{#if has}}<button type="button" data-action="clearSlot" data-key="{{key}}">Use shipped text</button>{{/if}}
+        </div>
+        {{else}}
+        <textarea class="atm-slot-text" data-key="{{key}}" placeholder="Paste the text for this entry alone...">{{value}}</textarea>
         <div class="atm-slot-actions">
           <button type="button" data-action="saveSlot" data-key="{{key}}">Save</button>
           {{#if has}}<button type="button" data-action="clearSlot" data-key="{{key}}">Use shipped text</button>{{/if}}
         </div>
+        {{/if}}
       </details>
       {{/each}}
     </div>
