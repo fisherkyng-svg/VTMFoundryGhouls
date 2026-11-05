@@ -128,10 +128,24 @@ async function runPush(plan) {
   return { items: plan.updates.length, actors: byActor.size };
 }
 
-const rowList = (rows, pick) => rows.map(r => {
-  const where = r.owner ? esc(r.owner.name) : 'World item';
-  return `<li><b>${where}</b>: ${esc(r.item.name)} <span class="atp-fields">(${esc(pick(r).join(', '))})</span></li>`;
-}).join('');
+// One line per actor (world items grouped too), item names only; the field
+// detail is in a tooltip so the list stays short.
+const rowList = (rows, pick) => {
+  const groups = new Map();
+  for (const r of rows) {
+    const where = r.owner ? r.owner.name : 'World items';
+    if (!groups.has(where)) groups.set(where, []);
+    groups.get(where).push(r);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([where, list]) => {
+      const items = list.map(r => `<span title="${esc(pick(r).join(', '))}">${esc(r.item.name)}</span>`).join(', ');
+      return `<li><b>${esc(where)}</b>: ${items}</li>`;
+    }).join('');
+};
+
+const BOX = 'max-height: 40vh; overflow-y: auto; margin: 4px 0 8px; padding: 4px 8px; border: 1px solid var(--vtm-border, #444); border-radius: 4px;';
 
 export async function pushToSheets() {
   const safe = computePushPlan({ overwrite: false });
@@ -147,14 +161,14 @@ export async function pushToSheets() {
         (${actorCount} actor${actorCount === 1 ? '' : 's'}${safe.updates.some(r => !r.owner) ? ' plus world items' : ''}).
         Only description text is replaced; dots, XP and stats are untouched.
         Take a world backup first if this is your first push.</p>
-      ${safe.updates.length ? `<details open><summary>Will update</summary><ul>${rowList(safe.updates, r => r.changed)}</ul></details>` : ''}
-      ${safe.conflicts.length ? `<details><summary>Hand-edited, skipped unless you tick below (${safe.conflicts.length})</summary><ul>${rowList(safe.conflicts, r => r.conflicts)}</ul></details>
+      ${safe.updates.length ? `<details><summary>Show what will update</summary><ul style="${BOX}">${rowList(safe.updates, r => r.changed)}</ul></details>` : ''}
+      ${safe.conflicts.length ? `<details><summary>Hand-edited, skipped unless you tick below (${safe.conflicts.length})</summary><ul style="${BOX}">${rowList(safe.conflicts, r => r.conflicts)}</ul></details>
       <label class="atp-overwrite"><input type="checkbox" name="overwrite"> Overwrite custom edits too</label>` : ''}
     </div>`;
 
   const overwrite = await foundry.applications.api.DialogV2.wait({
     window: { title: 'Push Authentic Text to Sheets' },
-    position: { width: 560 },
+    position: { width: 560, height: 'auto' },
     content,
     buttons: [
       { action: 'push', label: 'Push', icon: 'fas fa-upload', default: true,
